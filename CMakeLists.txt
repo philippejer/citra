@@ -143,10 +143,10 @@ find_package(Threads REQUIRED)
 if (ENABLE_SDL2)
     if (CITRA_USE_BUNDLED_SDL2)
         # Detect toolchain and platform
-        if ((MSVC_VERSION GREATER_EQUAL 1910 AND MSVC_VERSION LESS 1930) AND ARCHITECTURE_x86_64)
+        if ((MSVC_VERSION GREATER_EQUAL 1910 AND MSVC_VERSION LESS 1931) AND ARCHITECTURE_x86_64)
             set(SDL2_VER "SDL2-2.0.16")
         else()
-            message(FATAL_ERROR "No bundled SDL2 binaries for your toolchain. Disable CITRA_USE_BUNDLED_SDL2 and provide your own.")
+            message(FATAL_ERROR "No bundled SDL2 binaries for your toolchain. Disable CITRA_USE_BUNDLED_SDL2 and provide your own." "Version: " ${MSVC_VERSION})
         endif()
 
         if (DEFINED SDL2_VER)
@@ -173,7 +173,7 @@ endif()
 
 if (ENABLE_QT)
     if (CITRA_USE_BUNDLED_QT)
-        if ((MSVC_VERSION GREATER_EQUAL 1910 AND MSVC_VERSION LESS 1930) AND ARCHITECTURE_x86_64)
+        if ((MSVC_VERSION GREATER_EQUAL 1910 AND MSVC_VERSION LESS 1931) AND ARCHITECTURE_x86_64)
             set(QT_VER qt-5.10.0-msvc2017_64)
         else()
             message(FATAL_ERROR "No bundled Qt binaries for your toolchain. Disable CITRA_USE_BUNDLED_QT and provide your own.")
@@ -210,7 +210,7 @@ endif()
 
 if (ENABLE_FFMPEG)
     if (CITRA_USE_BUNDLED_FFMPEG)
-        if ((MSVC_VERSION GREATER_EQUAL 1910 AND MSVC_VERSION LESS 1930) AND ARCHITECTURE_x86_64)
+        if ((MSVC_VERSION GREATER_EQUAL 1910 AND MSVC_VERSION LESS 1931) AND ARCHITECTURE_x86_64)
             set(FFmpeg_VER "ffmpeg-4.1-win64")
         else()
             message(FATAL_ERROR "No bundled FFmpeg binaries for your toolchain. Disable CITRA_USE_BUNDLED_FFMPEG and provide your own.")
@@ -366,7 +366,7 @@ else()
 endif()
 
 add_subdirectory(src)
-add_subdirectory(dist/installer)
+# add_subdirectory(dist/installer)
 
 
 # Set citra-qt project or citra project as default StartUp Project in Visual Studio depending on whether QT is enabled or not

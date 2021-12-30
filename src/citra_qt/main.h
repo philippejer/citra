@@ -234,6 +234,7 @@ private:
     void InstallCIA(QStringList filepaths);
     void HideMouseCursor();
     void ShowMouseCursor();
+    void UpdateButtons();
 
     std::unique_ptr<Ui::MainWindow> ui;
 
@@ -308,6 +309,8 @@ private:
     QStringList default_theme_paths;
 
     HotkeyRegistry hotkey_registry;
+
+    QTimer button_update_timer;
 
 protected:
     void dropEvent(QDropEvent* event) override;

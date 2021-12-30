@@ -244,27 +244,23 @@ FramebufferLayout LargeFrameLayout(u32 width, u32 height, bool swapped, bool upr
     float small_screen_aspect_ratio;
     if (upright) {
         if (swapped) {
-            emulation_aspect_ratio = (Core::kScreenBottomWidth * 4.0f + Core::kScreenTopWidth) /
-                                     (Core::kScreenBottomHeight * 4);
             large_screen_aspect_ratio = BOT_SCREEN_UPRIGHT_ASPECT_RATIO;
             small_screen_aspect_ratio = TOP_SCREEN_UPRIGHT_ASPECT_RATIO;
+            emulation_aspect_ratio = small_screen_aspect_ratio;
         } else {
-            emulation_aspect_ratio = (Core::kScreenTopWidth * 4.0f + Core::kScreenBottomWidth) /
-                                     (Core::kScreenTopHeight * 4);
             large_screen_aspect_ratio = TOP_SCREEN_UPRIGHT_ASPECT_RATIO;
             small_screen_aspect_ratio = BOT_SCREEN_UPRIGHT_ASPECT_RATIO;
+            emulation_aspect_ratio = large_screen_aspect_ratio;
         }
     } else {
         if (swapped) {
-            emulation_aspect_ratio = Core::kScreenBottomHeight * 4 /
-                                     (Core::kScreenBottomWidth * 4.0f + Core::kScreenTopWidth);
             large_screen_aspect_ratio = BOT_SCREEN_ASPECT_RATIO;
             small_screen_aspect_ratio = TOP_SCREEN_ASPECT_RATIO;
+            emulation_aspect_ratio = small_screen_aspect_ratio;
         } else {
-            emulation_aspect_ratio = Core::kScreenTopHeight * 4 /
-                                     (Core::kScreenTopWidth * 4.0f + Core::kScreenBottomWidth);
             large_screen_aspect_ratio = TOP_SCREEN_ASPECT_RATIO;
             small_screen_aspect_ratio = BOT_SCREEN_ASPECT_RATIO;
+            emulation_aspect_ratio = large_screen_aspect_ratio;
         }
     }
 
@@ -280,13 +276,12 @@ FramebufferLayout LargeFrameLayout(u32 width, u32 height, bool swapped, bool upr
         large_screen = large_screen.TranslateY((height - total_rect.GetHeight()) / 2);
     }
     if (upright) {
-        large_screen = large_screen.TranslateY(small_screen.GetHeight());
         small_screen = small_screen.TranslateX(large_screen.right - small_screen.GetWidth())
                            .TranslateY(large_screen.top - small_screen.GetHeight());
     } else {
         // Shift the small screen to the bottom right corner
         small_screen =
-            small_screen.TranslateX(large_screen.right)
+            small_screen.TranslateX(large_screen.right - small_screen.GetWidth())
                 .TranslateY(large_screen.GetHeight() + large_screen.top - small_screen.GetHeight());
     }
     res.top_screen = swapped ? small_screen : large_screen;

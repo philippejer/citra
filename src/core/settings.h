@@ -176,6 +176,12 @@ struct Values {
     u16 frame_limit;
     u16 frame_limit_alternate;
     std::string texture_filter_name;
+    float user_param_1;
+    float user_param_2;
+    float user_param_3;
+    float user_param_4;
+    float user_param_5;
+    float user_param_6;
 
     LayoutOption layout_option;
     bool swap_screen;
@@ -249,6 +255,11 @@ struct Values {
     std::string audio_encoder;
     std::string audio_encoder_options;
     u64 audio_bitrate;
+
+    bool button1_pressed;
+    bool button1_handled;
+    bool button2_pressed;
+    bool button2_handled;
 } extern values;
 
 // a special value for Values::region_value indicating that citra will automatically select a region

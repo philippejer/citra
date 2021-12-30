@@ -92,12 +92,16 @@ private:
     void ConfigureFramebufferTexture(TextureInfo& texture,
                                      const GPU::Regs::FramebufferConfig& framebuffer);
     void DrawScreens(const Layout::FramebufferLayout& layout, bool flipped);
-    void DrawSingleScreenRotated(const ScreenInfo& screen_info, float x, float y, float w, float h);
-    void DrawSingleScreen(const ScreenInfo& screen_info, float x, float y, float w, float h);
-    void DrawSingleScreenStereoRotated(const ScreenInfo& screen_info_l,
+    void DrawSingleScreenRotated(const Layout::FramebufferLayout& layout,
+                                 const ScreenInfo& screen_info, float x, float y, float w, float h);
+    void DrawSingleScreen(const Layout::FramebufferLayout& layout, const ScreenInfo& screen_info,
+                          float x, float y, float w, float h);
+    void DrawSingleScreenStereoRotated(const Layout::FramebufferLayout& layout,
+                                       const ScreenInfo& screen_info_l,
                                        const ScreenInfo& screen_info_r, float x, float y, float w,
                                        float h);
-    void DrawSingleScreenStereo(const ScreenInfo& screen_info_l, const ScreenInfo& screen_info_r,
+    void DrawSingleScreenStereo(const Layout::FramebufferLayout& layout,
+                                const ScreenInfo& screen_info_l, const ScreenInfo& screen_info_r,
                                 float x, float y, float w, float h);
     void UpdateFramerate();
 
@@ -134,6 +138,12 @@ private:
     GLuint attrib_tex_coord;
 
     FrameDumperOpenGL frame_dumper;
+
+    GLuint uniform_eye_center;
+    GLuint uniform_distort_coeff_0;
+    GLuint uniform_distort_coeff_1;
+    GLuint uniform_distort_coeff_2;
+    GLuint uniform_distort_coeff_3;
 };
 
 } // namespace OpenGL

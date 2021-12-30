@@ -57,7 +57,7 @@ const std::array<std::array<int, 5>, Settings::NativeAnalog::NumAnalogs> Config:
 // This must be in alphabetical order according to action name as it must have the same order as
 // UISetting::values.shortcuts, which is alphabetically ordered.
 // clang-format off
-const std::array<UISettings::Shortcut, 23> default_hotkeys{
+const std::array<UISettings::Shortcut, 35> default_hotkeys{
     {{QStringLiteral("Advance Frame"),            QStringLiteral("Main Window"), {QStringLiteral("\\"), Qt::ApplicationShortcut}},
      {QStringLiteral("Capture Screenshot"),       QStringLiteral("Main Window"), {QStringLiteral("Ctrl+P"), Qt::ApplicationShortcut}},
      {QStringLiteral("Continue/Pause Emulation"), QStringLiteral("Main Window"), {QStringLiteral("F4"), Qt::WindowShortcut}},
@@ -80,7 +80,20 @@ const std::array<UISettings::Shortcut, 23> default_hotkeys{
      {QStringLiteral("Toggle Frame Advancing"),   QStringLiteral("Main Window"), {QStringLiteral("Ctrl+A"), Qt::ApplicationShortcut}},
      {QStringLiteral("Toggle Screen Layout"),     QStringLiteral("Main Window"), {QStringLiteral("F10"), Qt::WindowShortcut}},
      {QStringLiteral("Toggle Status Bar"),        QStringLiteral("Main Window"), {QStringLiteral("Ctrl+S"), Qt::WindowShortcut}},
-     {QStringLiteral("Toggle Texture Dumping"),   QStringLiteral("Main Window"), {QStringLiteral("Ctrl+D"), Qt::ApplicationShortcut}}}};
+     {QStringLiteral("Toggle Texture Dumping"),   QStringLiteral("Main Window"), {QStringLiteral("Ctrl+D"), Qt::ApplicationShortcut}},
+     {QStringLiteral("Decrease User Param 1"),    QStringLiteral("Main Window"), {QStringLiteral("Ctrl+F1"), Qt::WindowShortcut}},
+     {QStringLiteral("Increase User Param 1"),    QStringLiteral("Main Window"), {QStringLiteral("Ctrl+F2"), Qt::WindowShortcut}},
+     {QStringLiteral("Decrease User Param 2"),    QStringLiteral("Main Window"), {QStringLiteral("Ctrl+F3"), Qt::WindowShortcut}},
+     {QStringLiteral("Increase User Param 2"),    QStringLiteral("Main Window"), {QStringLiteral("Ctrl+F4"), Qt::WindowShortcut}},
+     {QStringLiteral("Decrease User Param 3"),    QStringLiteral("Main Window"), {QStringLiteral("Ctrl+F5"), Qt::WindowShortcut}},
+     {QStringLiteral("Increase User Param 3"),    QStringLiteral("Main Window"), {QStringLiteral("Ctrl+F6"), Qt::WindowShortcut}},
+     {QStringLiteral("Decrease User Param 4"),    QStringLiteral("Main Window"), {QStringLiteral("Ctrl+F7"), Qt::WindowShortcut}},
+     {QStringLiteral("Increase User Param 4"),    QStringLiteral("Main Window"), {QStringLiteral("Ctrl+F8"), Qt::WindowShortcut}},
+     {QStringLiteral("Decrease User Param 5"),    QStringLiteral("Main Window"), {QStringLiteral("Ctrl+F9"), Qt::WindowShortcut}},
+     {QStringLiteral("Increase User Param 5"),    QStringLiteral("Main Window"), {QStringLiteral("Ctrl+F10"), Qt::WindowShortcut}},
+     {QStringLiteral("Decrease User Param 6"),    QStringLiteral("Main Window"), {QStringLiteral("Ctrl+F11"), Qt::WindowShortcut}},
+     {QStringLiteral("Increase User Param 6"),    QStringLiteral("Main Window"), {QStringLiteral("Ctrl+F12"), Qt::WindowShortcut}}
+}};
 // clang-format on
 
 void Config::ReadValues() {
@@ -507,6 +520,13 @@ void Config::ReadRendererValues() {
         ReadSetting(QStringLiteral("texture_filter_name"), QStringLiteral("none"))
             .toString()
             .toStdString();
+
+    Settings::values.user_param_1 = ReadSetting(QStringLiteral("user_param_1"), 0.0).toFloat();
+    Settings::values.user_param_2 = ReadSetting(QStringLiteral("user_param_2"), 0.0).toFloat();
+    Settings::values.user_param_3 = ReadSetting(QStringLiteral("user_param_3"), 0.0).toFloat();
+    Settings::values.user_param_4 = ReadSetting(QStringLiteral("user_param_4"), 0.0).toFloat();
+    Settings::values.user_param_5 = ReadSetting(QStringLiteral("user_param_5"), 0.0).toFloat();
+    Settings::values.user_param_6 = ReadSetting(QStringLiteral("user_param_6"), 0.0).toFloat();
 
     qt_config->endGroup();
 }
@@ -1015,6 +1035,13 @@ void Config::SaveRendererValues() {
     WriteSetting(QStringLiteral("texture_filter_name"),
                  QString::fromStdString(Settings::values.texture_filter_name),
                  QStringLiteral("none"));
+
+    WriteSetting(QStringLiteral("user_param_1"), (double)Settings::values.user_param_1, 0.0);
+    WriteSetting(QStringLiteral("user_param_2"), (double)Settings::values.user_param_2, 0.0);
+    WriteSetting(QStringLiteral("user_param_3"), (double)Settings::values.user_param_3, 0.0);
+    WriteSetting(QStringLiteral("user_param_4"), (double)Settings::values.user_param_4, 0.0);
+    WriteSetting(QStringLiteral("user_param_5"), (double)Settings::values.user_param_5, 0.0);
+    WriteSetting(QStringLiteral("user_param_6"), (double)Settings::values.user_param_6, 0.0);
 
     qt_config->endGroup();
 }

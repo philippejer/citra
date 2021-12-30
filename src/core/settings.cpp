@@ -94,6 +94,12 @@ void LogSettings() {
     log_setting("Renderer_PostProcessingShader", values.pp_shader_name);
     log_setting("Renderer_FilterMode", values.filter_mode);
     log_setting("Renderer_TextureFilterName", values.texture_filter_name);
+    log_setting("User Param 1", values.user_param_1);
+    log_setting("User Param 2", values.user_param_2);
+    log_setting("User Param 3", values.user_param_3);
+    log_setting("User Param 4", values.user_param_4);
+    log_setting("User Param 5", values.user_param_5);
+    log_setting("User Param 6", values.user_param_6);
     log_setting("Stereoscopy_Render3d", values.render_3d);
     log_setting("Stereoscopy_Factor3d", values.factor_3d);
     log_setting("Layout_LayoutOption", values.layout_option);

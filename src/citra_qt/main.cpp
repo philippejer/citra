@@ -589,6 +589,66 @@ void GMainWindow::InitializeHotkeys() {
             &QShortcut::activated, ui->action_Load_from_Newest_Slot, &QAction::trigger);
     connect(hotkey_registry.GetHotkey(main_window, QStringLiteral("Save to Oldest Slot"), this),
             &QShortcut::activated, ui->action_Save_to_Oldest_Slot, &QAction::trigger);
+    connect(hotkey_registry.GetHotkey(main_window, QStringLiteral("Decrease User Param 1"), this),
+            &QShortcut::activated, this, [&] {
+                Settings::values.user_param_1 -= 0.01;
+                LOG_INFO(Frontend, "User Param 1: {:.2f}", Settings::values.user_param_1);
+            });
+    connect(hotkey_registry.GetHotkey(main_window, QStringLiteral("Increase User Param 1"), this),
+            &QShortcut::activated, this, [&] {
+                Settings::values.user_param_1 += 0.01;
+                LOG_INFO(Frontend, "User Param 1: {:.2f}", Settings::values.user_param_1);
+            });
+    connect(hotkey_registry.GetHotkey(main_window, QStringLiteral("Decrease User Param 2"), this),
+            &QShortcut::activated, this, [&] {
+                Settings::values.user_param_2 -= 0.01;
+                LOG_INFO(Frontend, "User Param 2: {:.2f}", Settings::values.user_param_2);
+            });
+    connect(hotkey_registry.GetHotkey(main_window, QStringLiteral("Increase User Param 2"), this),
+            &QShortcut::activated, this, [&] {
+                Settings::values.user_param_2 += 0.01;
+                LOG_INFO(Frontend, "User Param 2: {:.2f}", Settings::values.user_param_2);
+            });
+    connect(hotkey_registry.GetHotkey(main_window, QStringLiteral("Decrease User Param 3"), this),
+            &QShortcut::activated, this, [&] {
+                Settings::values.user_param_3 -= 0.01;
+                LOG_INFO(Frontend, "User Param 3: {:.2f}", Settings::values.user_param_3);
+            });
+    connect(hotkey_registry.GetHotkey(main_window, QStringLiteral("Increase User Param 3"), this),
+            &QShortcut::activated, this, [&] {
+                Settings::values.user_param_3 += 0.01;
+                LOG_INFO(Frontend, "User Param 3: {:.2f}", Settings::values.user_param_3);
+            });
+    connect(hotkey_registry.GetHotkey(main_window, QStringLiteral("Decrease User Param 4"), this),
+            &QShortcut::activated, this, [&] {
+                Settings::values.user_param_4 -= 0.01;
+                LOG_INFO(Frontend, "User Param 4: {:.2f}", Settings::values.user_param_4);
+            });
+    connect(hotkey_registry.GetHotkey(main_window, QStringLiteral("Increase User Param 4"), this),
+            &QShortcut::activated, this, [&] {
+                Settings::values.user_param_4 += 0.01;
+                LOG_INFO(Frontend, "User Param 4: {:.2f}", Settings::values.user_param_4);
+            });
+    connect(hotkey_registry.GetHotkey(main_window, QStringLiteral("Decrease User Param 5"), this),
+            &QShortcut::activated, this, [&] {
+                Settings::values.user_param_5 -= 0.01;
+                LOG_INFO(Frontend, "User Param 5: {:.2f}", Settings::values.user_param_5);
+            });
+    connect(hotkey_registry.GetHotkey(main_window, QStringLiteral("Increase User Param 5"), this),
+            &QShortcut::activated, this, [&] {
+                Settings::values.user_param_5 += 0.01;
+                LOG_INFO(Frontend, "User Param 5: {:.2f}", Settings::values.user_param_5);
+            });
+    connect(hotkey_registry.GetHotkey(main_window, QStringLiteral("Decrease User Param 6"), this),
+            &QShortcut::activated, this, [&] {
+                Settings::values.user_param_6 -= 0.01;
+                LOG_INFO(Frontend, "User Param 6: {:.2f}", Settings::values.user_param_6);
+            });
+    connect(hotkey_registry.GetHotkey(main_window, QStringLiteral("Increase User Param 6"), this),
+            &QShortcut::activated, this, [&] {
+                Settings::values.user_param_6 += 0.01;
+                LOG_INFO(Frontend, "User Param 6: {:.2f}", Settings::values.user_param_6);
+            });
 }
 
 void GMainWindow::ShowUpdaterWidgets() {
@@ -682,6 +742,8 @@ void GMainWindow::ConnectWidgetEvents() {
     connect(this, &GMainWindow::CIAInstallFinished, this, &GMainWindow::OnCIAInstallFinished);
     connect(this, &GMainWindow::UpdateThemedIcons, multiplayer_state,
             &MultiplayerState::UpdateThemedIcons);
+
+    connect(&button_update_timer, &QTimer::timeout, this, &GMainWindow::UpdateButtons);
 }
 
 void GMainWindow::ConnectMenuEvents() {
@@ -1069,6 +1131,8 @@ void GMainWindow::BootGame(const QString& filename) {
         setMouseTracking(true);
     }
 
+    button_update_timer.start(100);
+
     // show and hide the render_window to create the context
     render_window->show();
     render_window->hide();
@@ -1175,6 +1239,8 @@ void GMainWindow::ShutdownGame() {
     emu_speed_label->setVisible(false);
     game_fps_label->setVisible(false);
     emu_frametime_label->setVisible(false);
+
+    button_update_timer.stop();
 
     UpdateSaveStates();
 
@@ -2429,6 +2495,33 @@ void GMainWindow::SetDiscordEnabled([[maybe_unused]] bool state) {
     discord_rpc = std::make_unique<DiscordRPC::NullImpl>();
 #endif
     discord_rpc->Update();
+}
+
+void GMainWindow::UpdateButtons() {
+    if (Settings::values.button1_pressed) {
+        if (!Settings::values.button1_handled) {
+            Settings::values.button1_handled = true;
+            Settings::values.swap_screen = !Settings::values.swap_screen;
+            SyncMenuUISettings();
+            Settings::Apply();
+        }
+    } else {
+        Settings::values.button1_handled = false;
+    }
+    if (Settings::values.button2_pressed) {
+        if (!Settings::values.button2_handled) {
+            Settings::values.button2_handled = true;
+            if (Settings::values.layout_option == Settings::LayoutOption::SingleScreen) {
+                Settings::values.layout_option = Settings::LayoutOption::LargeScreen;
+            } else {
+                Settings::values.layout_option = Settings::LayoutOption::SingleScreen;
+            }
+            SyncMenuUISettings();
+            Settings::Apply();
+        }
+    } else {
+        Settings::values.button2_handled = false;
+    }
 }
 
 #ifdef main

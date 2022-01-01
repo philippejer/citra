@@ -235,6 +235,10 @@ FramebufferLayout LargeFrameLayout(u32 width, u32 height, bool swapped, bool upr
     ASSERT(width > 0);
     ASSERT(height > 0);
 
+    float small_screen_scale = Settings::values.user_param_2;
+    float small_screen_offset_x = Settings::values.user_param_3;
+    float small_screen_offset_y = Settings::values.user_param_4;
+
     FramebufferLayout res{width, height, true, true, {}, {}, !upright};
     // Split the window into two parts. Give 4x width to the main screen and 1x width to the small
     // To do that, find the total emulation box and maximize that based on window size
@@ -267,8 +271,9 @@ FramebufferLayout LargeFrameLayout(u32 width, u32 height, bool swapped, bool upr
     Common::Rectangle<u32> screen_window_area{0, 0, width, height};
     Common::Rectangle<u32> total_rect = maxRectangle(screen_window_area, emulation_aspect_ratio);
     Common::Rectangle<u32> large_screen = maxRectangle(total_rect, large_screen_aspect_ratio);
-    Common::Rectangle<u32> fourth_size_rect = total_rect.Scale(.25f);
-    Common::Rectangle<u32> small_screen = maxRectangle(fourth_size_rect, small_screen_aspect_ratio);
+    Common::Rectangle<u32> small_screen_rect = total_rect.Scale(small_screen_scale);
+    Common::Rectangle<u32> small_screen =
+        maxRectangle(small_screen_rect, small_screen_aspect_ratio);
 
     if (window_aspect_ratio < emulation_aspect_ratio) {
         large_screen = large_screen.TranslateX((width - total_rect.GetWidth()) / 2);
@@ -280,9 +285,11 @@ FramebufferLayout LargeFrameLayout(u32 width, u32 height, bool swapped, bool upr
                            .TranslateY(large_screen.top - small_screen.GetHeight());
     } else {
         // Shift the small screen to the bottom right corner
-        small_screen =
-            small_screen.TranslateX(large_screen.right - small_screen.GetWidth())
-                .TranslateY(large_screen.GetHeight() + large_screen.top - small_screen.GetHeight());
+        small_screen = small_screen
+                           .TranslateX(large_screen.right -
+                                       (1.0f - small_screen_offset_x) * small_screen.GetWidth())
+                           .TranslateY(large_screen.GetHeight() + large_screen.top -
+                                       (1.0f - small_screen_offset_y) * small_screen.GetHeight());
     }
     res.top_screen = swapped ? small_screen : large_screen;
     res.bottom_screen = swapped ? large_screen : small_screen;

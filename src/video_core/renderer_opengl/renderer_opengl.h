@@ -139,11 +139,8 @@ private:
 
     FrameDumperOpenGL frame_dumper;
 
-    GLuint uniform_eye_center;
-    GLuint uniform_distort_coeff_0;
-    GLuint uniform_distort_coeff_1;
-    GLuint uniform_distort_coeff_2;
-    GLuint uniform_distort_coeff_3;
+    GLuint uniform_shader_param_1;
+    GLuint uniform_shader_param_2;
 };
 
 } // namespace OpenGL

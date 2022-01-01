@@ -753,11 +753,8 @@ void RendererOpenGL::ReloadShader() {
     attrib_position = glGetAttribLocation(shader.handle, "vert_position");
     attrib_tex_coord = glGetAttribLocation(shader.handle, "vert_tex_coord");
 
-    uniform_eye_center = glGetUniformLocation(shader.handle, "eye_center");
-    uniform_distort_coeff_0 = glGetUniformLocation(shader.handle, "distort_coeff_0");
-    uniform_distort_coeff_1 = glGetUniformLocation(shader.handle, "distort_coeff_1");
-    uniform_distort_coeff_2 = glGetUniformLocation(shader.handle, "distort_coeff_2");
-    uniform_distort_coeff_3 = glGetUniformLocation(shader.handle, "distort_coeff_3");
+    uniform_shader_param_1 = glGetUniformLocation(shader.handle, "shader_param_1");
+    uniform_shader_param_2 = glGetUniformLocation(shader.handle, "shader_param_2");
 }
 
 void RendererOpenGL::ConfigureFramebufferTexture(TextureInfo& texture,
@@ -1009,33 +1006,22 @@ void RendererOpenGL::DrawScreens(const Layout::FramebufferLayout& layout, bool f
         glUniform1i(uniform_color_texture_r, 1);
     }
 
-    glUniform2f(uniform_eye_center, 0.5f, 0.5f);
-    glUniform1f(uniform_distort_coeff_0, 0.0f);
-    glUniform1f(uniform_distort_coeff_1, 1.0f);
-    glUniform1f(uniform_distort_coeff_2, 0.0f);
-    glUniform1f(uniform_distort_coeff_3, 0.0f);
+    glUniform1f(uniform_shader_param_1, Settings::values.user_param_5);
+    glUniform1f(uniform_shader_param_2, Settings::values.user_param_6);
 
     float zoom_param = std::max(0.0f, Settings::values.user_param_1 * 5.0f);
 
     glUniform1i(uniform_layer, 0);
     if (Settings::values.render_3d == Settings::StereoRenderOption::Off) {
-        float screen_scale = 1.0f / (1.0f + zoom_param);
-        float space_scale = (1.0f - screen_scale) * 0.5f;
         auto draw = layout.is_rotated ? &DrawSingleScreenRotated : &DrawSingleScreen;
         if (layout.top_screen_enabled) {
-            (this->*draw)(layout, screen_infos[0],
-                          (float)top_screen.left * screen_scale + (float)layout.width * space_scale,
-                          (float)top_screen.top * screen_scale + (float)layout.height * space_scale,
-                          (float)top_screen.GetWidth() * screen_scale,
-                          (float)top_screen.GetHeight() * screen_scale);
+            (this->*draw)(layout, screen_infos[0], (float)top_screen.left, (float)top_screen.top,
+                          (float)top_screen.GetWidth(), (float)top_screen.GetHeight());
         }
         if (layout.bottom_screen_enabled) {
-            (this->*draw)(
-                layout, screen_infos[2],
-                (float)bottom_screen.left * screen_scale + (float)layout.width * space_scale,
-                (float)bottom_screen.top * screen_scale + (float)layout.height * space_scale,
-                (float)bottom_screen.GetWidth() * screen_scale,
-                (float)bottom_screen.GetHeight() * screen_scale);
+            (this->*draw)(layout, screen_infos[2], (float)bottom_screen.left,
+                          (float)bottom_screen.top, (float)bottom_screen.GetWidth(),
+                          (float)bottom_screen.GetHeight());
         }
     } else if (Settings::values.render_3d == Settings::StereoRenderOption::SideBySide) {
         float screen_scale = 1.0f / (2.0f + zoom_param);
@@ -1043,6 +1029,7 @@ void RendererOpenGL::DrawScreens(const Layout::FramebufferLayout& layout, bool f
         float height_scale = (1.0f - screen_scale) * 0.5f;
         auto draw = layout.is_rotated ? &DrawSingleScreenRotated : &DrawSingleScreen;
         if (layout.top_screen_enabled) {
+            state.blend.enabled = false;
             (this->*draw)(
                 layout, screen_infos[0],
                 (float)top_screen.left * screen_scale + (float)layout.width * 0.5f * width_scale,
@@ -1051,6 +1038,9 @@ void RendererOpenGL::DrawScreens(const Layout::FramebufferLayout& layout, bool f
                 (float)top_screen.GetHeight() * screen_scale);
         }
         if (layout.bottom_screen_enabled) {
+            state.blend.enabled = true;
+            state.blend.src_rgb_func = GL_SRC_ALPHA;
+            state.blend.dst_rgb_func = GL_ONE_MINUS_SRC_ALPHA;
             (this->*draw)(
                 layout, screen_infos[2],
                 (float)bottom_screen.left * screen_scale + (float)layout.width * 0.5f * width_scale,
@@ -1060,6 +1050,7 @@ void RendererOpenGL::DrawScreens(const Layout::FramebufferLayout& layout, bool f
         }
         glUniform1i(uniform_layer, 1);
         if (layout.top_screen_enabled) {
+            state.blend.enabled = false;
             (this->*draw)(layout, screen_infos[1],
                           (float)top_screen.left * screen_scale +
                               (float)layout.width * 0.5f * (1.0f + width_scale),
@@ -1069,6 +1060,9 @@ void RendererOpenGL::DrawScreens(const Layout::FramebufferLayout& layout, bool f
                           (float)top_screen.GetHeight() * screen_scale);
         }
         if (layout.bottom_screen_enabled) {
+            state.blend.enabled = true;
+            state.blend.src_rgb_func = GL_SRC_ALPHA;
+            state.blend.dst_rgb_func = GL_ONE_MINUS_SRC_ALPHA;
             (this->*draw)(layout, screen_infos[2],
                           (float)bottom_screen.left * screen_scale +
                               (float)layout.width * 0.5f * (1.0f + width_scale),

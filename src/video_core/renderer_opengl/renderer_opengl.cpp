@@ -1024,39 +1024,18 @@ void RendererOpenGL::DrawScreens(const Layout::FramebufferLayout& layout, bool f
                           (float)bottom_screen.GetHeight());
         }
     } else if (Settings::values.render_3d == Settings::StereoRenderOption::SideBySide) {
-        float screen_scale = 1.0f / (2.0f + zoom_param);
-        float width_scale = (1.0f - screen_scale * 2.0f) * 0.5f;
-        float height_scale = (1.0f - screen_scale) * 0.5f;
+        float screen_scale = 1.0f / (1.0f + zoom_param);
+        float width_scale = (1.0f - screen_scale * 1.0f) * 0.5f;
+        float height_scale = (1.0f - screen_scale * 1.0f) * 0.5f;
         auto draw = layout.is_rotated ? &DrawSingleScreenRotated : &DrawSingleScreen;
         if (layout.top_screen_enabled) {
             state.blend.enabled = false;
-            (this->*draw)(
-                layout, screen_infos[0],
-                (float)top_screen.left * screen_scale + (float)layout.width * 0.5f * width_scale,
-                (float)top_screen.top * screen_scale + (float)layout.height * height_scale,
-                (float)top_screen.GetWidth() * screen_scale,
-                (float)top_screen.GetHeight() * screen_scale);
-        }
-        if (layout.bottom_screen_enabled) {
-            state.blend.enabled = true;
-            state.blend.src_rgb_func = GL_SRC_ALPHA;
-            state.blend.dst_rgb_func = GL_ONE_MINUS_SRC_ALPHA;
-            (this->*draw)(
-                layout, screen_infos[2],
-                (float)bottom_screen.left * screen_scale + (float)layout.width * 0.5f * width_scale,
-                (float)bottom_screen.top * screen_scale + (float)layout.height * height_scale,
-                (float)bottom_screen.GetWidth() * screen_scale,
-                (float)bottom_screen.GetHeight() * screen_scale);
-        }
-        glUniform1i(uniform_layer, 1);
-        if (layout.top_screen_enabled) {
-            state.blend.enabled = false;
-            (this->*draw)(layout, screen_infos[1],
-                          (float)top_screen.left * screen_scale +
-                              (float)layout.width * 0.5f * (1.0f + width_scale),
+            (this->*draw)(layout, screen_infos[0],
+                          (float)top_screen.left * 0.5f * screen_scale +
+                              (float)layout.width * 0.5f * width_scale,
                           (float)top_screen.top * screen_scale +
                               (float)layout.height * height_scale,
-                          (float)top_screen.GetWidth() * screen_scale,
+                          (float)top_screen.GetWidth() * 0.5f * screen_scale,
                           (float)top_screen.GetHeight() * screen_scale);
         }
         if (layout.bottom_screen_enabled) {
@@ -1064,11 +1043,34 @@ void RendererOpenGL::DrawScreens(const Layout::FramebufferLayout& layout, bool f
             state.blend.src_rgb_func = GL_SRC_ALPHA;
             state.blend.dst_rgb_func = GL_ONE_MINUS_SRC_ALPHA;
             (this->*draw)(layout, screen_infos[2],
-                          (float)bottom_screen.left * screen_scale +
+                          (float)bottom_screen.left * 0.5f * screen_scale +
+                              (float)layout.width * 0.5f * width_scale,
+                          (float)bottom_screen.top * screen_scale +
+                              (float)layout.height * height_scale,
+                          (float)bottom_screen.GetWidth() * 0.5f * screen_scale,
+                          (float)bottom_screen.GetHeight() * screen_scale);
+        }
+        glUniform1i(uniform_layer, 1);
+        if (layout.top_screen_enabled) {
+            state.blend.enabled = false;
+            (this->*draw)(layout, screen_infos[1],
+                          (float)top_screen.left * 0.5f * screen_scale +
+                              (float)layout.width * 0.5f * (1.0f + width_scale),
+                          (float)top_screen.top * screen_scale +
+                              (float)layout.height * height_scale,
+                          (float)top_screen.GetWidth() * 0.5f * screen_scale,
+                          (float)top_screen.GetHeight() * screen_scale);
+        }
+        if (layout.bottom_screen_enabled) {
+            state.blend.enabled = true;
+            state.blend.src_rgb_func = GL_SRC_ALPHA;
+            state.blend.dst_rgb_func = GL_ONE_MINUS_SRC_ALPHA;
+            (this->*draw)(layout, screen_infos[2],
+                          (float)bottom_screen.left * 0.5f * screen_scale +
                               (float)layout.width * 0.5f * (1.0f + width_scale),
                           (float)bottom_screen.top * screen_scale +
                               (float)layout.height * height_scale,
-                          (float)bottom_screen.GetWidth() * screen_scale,
+                          (float)bottom_screen.GetWidth() * 0.5f * screen_scale,
                           (float)bottom_screen.GetHeight() * screen_scale);
         }
     } else if (stereo_single_screen) {

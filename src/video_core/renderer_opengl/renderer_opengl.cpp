@@ -265,6 +265,7 @@ uniform sampler2D color_texture;
 
 void main() {
     color = texture(color_texture, frag_tex_coord);
+    //color = vec4(1.0, 1.0, 1.0, 1.0);
 }
 )";
 
@@ -316,6 +317,35 @@ void main() {
         color = texture(color_texture, frag_tex_coord);
     else
         color = texture(color_texture_r, frag_tex_coord);
+}
+)";
+
+static const char extra_vertex_shader[] = R"(
+in vec2 vert_position;
+in vec2 vert_tex_coord;
+out vec2 frag_tex_coord;
+
+uniform mat3x2 modelview_matrix;
+
+void main() {
+    gl_Position = vec4(mat2(modelview_matrix) * vert_position + modelview_matrix[2], 0.0, 1.0);
+    //gl_Position = vec4(vert_position, 0.0, 0.0);
+    frag_tex_coord = vert_tex_coord;
+}
+)";
+
+static const char extra_fragment_shader[] = R"(
+in vec2 frag_tex_coord;
+layout(location = 0) out vec4 color;
+
+uniform int layer;
+
+uniform sampler2D color_texture;
+
+void main() {
+    color = texture(color_texture, frag_tex_coord);
+    //color.a = max(color.a, 0.5);
+    //color = vec4(1.0, 0.0, 0.0, 1.0);
 }
 )";
 
@@ -670,6 +700,10 @@ void RendererOpenGL::InitOpenGLObjects() {
 
     state.texture_units[0].texture_2d = 0;
     state.Apply();
+
+    InitOpenGLExtraObjects();
+
+    state.Apply();
 }
 
 void RendererOpenGL::ReloadSampler() {
@@ -822,7 +856,8 @@ void RendererOpenGL::ConfigureFramebufferTexture(TextureInfo& texture,
  * Draws a single texture to the emulator window, rotating the texture to correct for the 3DS's LCD
  * rotation.
  */
-void RendererOpenGL::DrawSingleScreenRotated(const Layout::FramebufferLayout& layout, const ScreenInfo& screen_info, float x, float y,
+void RendererOpenGL::DrawSingleScreenRotated(const Layout::FramebufferLayout& layout,
+                                             const ScreenInfo& screen_info, float x, float y,
                                              float w, float h) {
     const auto& texcoords = screen_info.display_texcoords;
 
@@ -980,6 +1015,9 @@ void RendererOpenGL::DrawScreens(const Layout::FramebufferLayout& layout, bool f
         shader.Release();
         // Link shaders and get variable locations
         ReloadShader();
+        extra_state.Apply();
+        ReloadExtraShader();
+        state.Apply();
     }
 
     const auto& top_screen = layout.top_screen;
@@ -1009,90 +1047,405 @@ void RendererOpenGL::DrawScreens(const Layout::FramebufferLayout& layout, bool f
     glUniform1f(uniform_shader_param_1, Settings::values.user_param_5);
     glUniform1f(uniform_shader_param_2, Settings::values.user_param_6);
 
-    float zoom_param = std::max(0.0f, Settings::values.user_param_1 * 5.0f);
-
     glUniform1i(uniform_layer, 0);
     if (Settings::values.render_3d == Settings::StereoRenderOption::Off) {
-        auto draw = layout.is_rotated ? &DrawSingleScreenRotated : &DrawSingleScreen;
+        auto draw = layout.is_rotated ? &RendererOpenGL::DrawSingleScreenRotated
+                                      : &RendererOpenGL::DrawSingleScreen;
         if (layout.top_screen_enabled) {
+            state.blend.enabled = false;
             (this->*draw)(layout, screen_infos[0], (float)top_screen.left, (float)top_screen.top,
                           (float)top_screen.GetWidth(), (float)top_screen.GetHeight());
         }
         if (layout.bottom_screen_enabled) {
+            state.blend.enabled = true;
             (this->*draw)(layout, screen_infos[2], (float)bottom_screen.left,
                           (float)bottom_screen.top, (float)bottom_screen.GetWidth(),
                           (float)bottom_screen.GetHeight());
         }
     } else if (Settings::values.render_3d == Settings::StereoRenderOption::SideBySide) {
-        float screen_scale = 1.0f / (1.0f + zoom_param);
-        float width_scale = (1.0f - screen_scale * 1.0f) * 0.5f;
-        float height_scale = (1.0f - screen_scale * 1.0f) * 0.5f;
-        auto draw = layout.is_rotated ? &DrawSingleScreenRotated : &DrawSingleScreen;
+        auto draw = layout.is_rotated ? &RendererOpenGL::DrawSingleScreenRotated
+                                      : &RendererOpenGL::DrawSingleScreen;
         if (layout.top_screen_enabled) {
             state.blend.enabled = false;
-            (this->*draw)(layout, screen_infos[0],
-                          (float)top_screen.left * 0.5f * screen_scale +
-                              (float)layout.width * 0.5f * width_scale,
-                          (float)top_screen.top * screen_scale +
-                              (float)layout.height * height_scale,
-                          (float)top_screen.GetWidth() * 0.5f * screen_scale,
-                          (float)top_screen.GetHeight() * screen_scale);
+            (this->*draw)(layout, screen_infos[0], (float)top_screen.left / 2,
+                          (float)top_screen.top, (float)top_screen.GetWidth() / 2,
+                          (float)top_screen.GetHeight());
         }
         if (layout.bottom_screen_enabled) {
             state.blend.enabled = true;
             state.blend.src_rgb_func = GL_SRC_ALPHA;
             state.blend.dst_rgb_func = GL_ONE_MINUS_SRC_ALPHA;
-            (this->*draw)(layout, screen_infos[2],
-                          (float)bottom_screen.left * 0.5f * screen_scale +
-                              (float)layout.width * 0.5f * width_scale,
-                          (float)bottom_screen.top * screen_scale +
-                              (float)layout.height * height_scale,
-                          (float)bottom_screen.GetWidth() * 0.5f * screen_scale,
-                          (float)bottom_screen.GetHeight() * screen_scale);
+            (this->*draw)(layout, screen_infos[2], (float)bottom_screen.left / 2, (float)bottom_screen.top,
+                          (float)bottom_screen.GetWidth() / 2, (float)bottom_screen.GetHeight());
         }
         glUniform1i(uniform_layer, 1);
         if (layout.top_screen_enabled) {
             state.blend.enabled = false;
             (this->*draw)(layout, screen_infos[1],
-                          (float)top_screen.left * 0.5f * screen_scale +
-                              (float)layout.width * 0.5f * (1.0f + width_scale),
-                          (float)top_screen.top * screen_scale +
-                              (float)layout.height * height_scale,
-                          (float)top_screen.GetWidth() * 0.5f * screen_scale,
-                          (float)top_screen.GetHeight() * screen_scale);
+                          ((float)top_screen.left / 2) + ((float)layout.width / 2),
+                          (float)top_screen.top, (float)top_screen.GetWidth() / 2,
+                          (float)top_screen.GetHeight());
         }
         if (layout.bottom_screen_enabled) {
             state.blend.enabled = true;
             state.blend.src_rgb_func = GL_SRC_ALPHA;
             state.blend.dst_rgb_func = GL_ONE_MINUS_SRC_ALPHA;
-            (this->*draw)(layout, screen_infos[2],
-                          (float)bottom_screen.left * 0.5f * screen_scale +
-                              (float)layout.width * 0.5f * (1.0f + width_scale),
-                          (float)bottom_screen.top * screen_scale +
-                              (float)layout.height * height_scale,
-                          (float)bottom_screen.GetWidth() * 0.5f * screen_scale,
-                          (float)bottom_screen.GetHeight() * screen_scale);
+            (this->*draw)(layout, screen_infos[2], ((float)bottom_screen.left / 2) + ((float)layout.width / 2),
+                          (float)bottom_screen.top, (float)bottom_screen.GetWidth() / 2,
+                          (float)bottom_screen.GetHeight());
         }
     } else if (stereo_single_screen) {
-        float screen_scale = 1.0f / (1.0f + zoom_param);
-        float space_scale = (1.0f - screen_scale) * 0.5f;
-        auto draw = layout.is_rotated ? &DrawSingleScreenStereoRotated : &DrawSingleScreenStereo;
+        auto draw = layout.is_rotated ? &RendererOpenGL::DrawSingleScreenStereoRotated
+                                      : &RendererOpenGL::DrawSingleScreenStereo;
         if (layout.top_screen_enabled) {
-            (this->*draw)(layout, screen_infos[0], screen_infos[1],
-                          (float)top_screen.left * screen_scale + (float)layout.width * space_scale,
-                          (float)top_screen.top * screen_scale + (float)layout.height * space_scale,
-                          (float)top_screen.GetWidth() * screen_scale,
-                          (float)top_screen.GetHeight() * screen_scale);
+            state.blend.enabled = false;
+            (this->*draw)(layout, screen_infos[0], screen_infos[1], (float)top_screen.left,
+                          (float)top_screen.top, (float)top_screen.GetWidth(),
+                          (float)top_screen.GetHeight());
         }
         if (layout.bottom_screen_enabled) {
-            (this->*draw)(
-                layout, screen_infos[2], screen_infos[2],
-                (float)bottom_screen.left * screen_scale + (float)layout.width * space_scale,
-                (float)bottom_screen.top * screen_scale + (float)layout.height * space_scale,
-                (float)bottom_screen.GetWidth() * screen_scale,
-                (float)bottom_screen.GetHeight() * screen_scale);
+            state.blend.enabled = true;
+            (this->*draw)(layout, screen_infos[2], screen_infos[2],
+                          (float)bottom_screen.left, (float)bottom_screen.top,
+                          (float)bottom_screen.GetWidth(),
+                          (float)bottom_screen.GetHeight());
         }
     }
+    if (Settings::values.render_3d == Settings::StereoRenderOption::SideBySide) {
+        DrawScreenCursor(layout, flipped);
+    }
+}
+
+static const std::vector TextCharWidths{
+    0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,
+    0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,
+    0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,
+    0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,
+    0.0f,        0.0f,        0.0f,        0.0f,        0.01660156f, 0.01861572f, 0.0234375f,
+    0.03601074f, 0.03601074f, 0.05682373f, 0.04293823f, 0.01318359f, 0.02206421f, 0.02206421f,
+    0.02557373f, 0.03775024f, 0.01861572f, 0.02206421f, 0.01861572f, 0.01861572f, 0.03601074f,
+    0.03601074f, 0.03601074f, 0.03601074f, 0.03601074f, 0.03601074f, 0.03601074f, 0.03601074f,
+    0.03601074f, 0.03601074f, 0.01861572f, 0.01861572f, 0.03775024f, 0.03775024f, 0.03775024f,
+    0.03601074f, 0.06469727f, 0.04293823f, 0.04293823f, 0.04638672f, 0.04638672f, 0.04293823f,
+    0.03942871f, 0.04986572f, 0.04638672f, 0.01861572f, 0.03250122f, 0.04293823f, 0.03601074f,
+    0.05331421f, 0.04638672f, 0.04986572f, 0.04293823f, 0.04986572f, 0.04638672f, 0.04293823f,
+    0.03942871f, 0.04638672f, 0.04293823f, 0.0602417f,  0.04293823f, 0.04293823f, 0.03942871f,
+    0.01861572f, 0.01861572f, 0.01861572f, 0.03057861f, 0.03573608f, 0.02206421f, 0.03601074f,
+    0.03601074f, 0.03250122f, 0.03601074f, 0.03601074f, 0.01861572f, 0.03601074f, 0.03601074f,
+    0.01550293f, 0.01550293f, 0.03250122f, 0.01550293f, 0.05331421f, 0.03601074f, 0.03601074f,
+    0.03601074f, 0.03601074f, 0.02206421f, 0.03250122f, 0.01861572f, 0.03601074f, 0.03250122f,
+    0.04638672f, 0.03250122f, 0.03250122f, 0.03250122f, 0.02212524f, 0.01748657f, 0.02212524f,
+    0.03775024f, 0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,
+    0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,
+    0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,
+    0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,
+    0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.01660156f,
+    0.01861572f, 0.03601074f, 0.03601074f, 0.03601074f, 0.03601074f, 0.01748657f, 0.03601074f,
+    0.02206421f, 0.04730225f, 0.02438354f, 0.03601074f, 0.03775024f, 0.0f,        0.04730225f,
+    0.03250122f, 0.02624512f, 0.03775024f, 0.02206421f, 0.02206421f, 0.02206421f, 0.03601074f,
+    0.03482056f, 0.01861572f, 0.02206421f, 0.02206421f, 0.02407837f, 0.03601074f, 0.05337524f,
+    0.05337524f, 0.05337524f, 0.03601074f, 0.04293823f, 0.04293823f, 0.04293823f, 0.04293823f,
+    0.04293823f, 0.04293823f, 0.06375122f, 0.04638672f, 0.04293823f, 0.04293823f, 0.04293823f,
+    0.04293823f, 0.01861572f, 0.01861572f, 0.01861572f, 0.01861572f, 0.04638672f, 0.04638672f,
+    0.04986572f, 0.04986572f, 0.04986572f, 0.04986572f, 0.04986572f, 0.03775024f, 0.04986572f,
+    0.04638672f, 0.04638672f, 0.04638672f, 0.04638672f, 0.04293823f, 0.04293823f, 0.03942871f,
+    0.03601074f, 0.03601074f, 0.03601074f, 0.03601074f, 0.03601074f, 0.03601074f, 0.05682373f,
+    0.03250122f, 0.03601074f, 0.03601074f, 0.03601074f, 0.03601074f, 0.01550293f, 0.01550293f,
+    0.01550293f, 0.01550293f, 0.03601074f, 0.03601074f, 0.03601074f, 0.03601074f, 0.03601074f,
+    0.03601074f, 0.03601074f, 0.03775024f, 0.03601074f, 0.03601074f, 0.03601074f, 0.03601074f,
+    0.03601074f, 0.03250122f, 0.03601074f, 0.03250122f};
+
+static const float TextCharHeight = 0.07128906f;
+
+static const std::vector TextCharUs{
+    0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,
+    0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,
+    0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,
+    0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,
+    0.0f,        0.0f,        0.0f,        0.0f,        0.015625f,   0.04785156f, 0.08209229f,
+    0.1211548f,  0.1727905f,  0.2244263f,  0.296875f,   0.3554382f,  0.3842468f,  0.421936f,
+    0.4596252f,  0.500824f,   0.5541992f,  0.5884399f,  0.6261292f,  0.6603699f,  0.6946106f,
+    0.7462463f,  0.7978821f,  0.8495178f,  0.9011536f,  0.015625f,   0.06726074f, 0.1188965f,
+    0.1705322f,  0.222168f,   0.2738037f,  0.3080444f,  0.3422852f,  0.3956604f,  0.4490356f,
+    0.5024109f,  0.5540466f,  0.6343689f,  0.6929321f,  0.7514954f,  0.8135071f,  0.8755188f,
+    0.934082f,   0.015625f,   0.08111572f, 0.1431274f,  0.1773682f,  0.2254944f,  0.2840576f,
+    0.3356934f,  0.4046326f,  0.4666443f,  0.532135f,   0.5906982f,  0.656189f,   0.7182007f,
+    0.7767639f,  0.8318176f,  0.8938293f,  0.015625f,   0.0914917f,  0.1500549f,  0.2086182f,
+    0.2636719f,  0.2979126f,  0.3321533f,  0.366394f,   0.4125977f,  0.4639587f,  0.5016479f,
+    0.5532837f,  0.6049194f,  0.6530457f,  0.7046814f,  0.7563171f,  0.7905579f,  0.8421936f,
+    0.8938293f,  0.9249573f,  0.015625f,   0.06375122f, 0.09487915f, 0.1638184f,  0.2154541f,
+    0.2670898f,  0.3187256f,  0.3703613f,  0.4080505f,  0.4561768f,  0.4904175f,  0.5420532f,
+    0.5901794f,  0.6521912f,  0.7003174f,  0.7484436f,  0.7965698f,  0.8343201f,  0.8674316f,
+    0.9051819f,  0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,
+    0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,
+    0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,
+    0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,
+    0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.0f,        0.9585571f,
+    0.015625f,   0.04986572f, 0.1015015f,  0.1531372f,  0.2047729f,  0.2564087f,  0.2895203f,
+    0.341156f,   0.3788452f,  0.4417725f,  0.481781f,   0.5334167f,  0.586792f,   0.602417f,
+    0.6653442f,  0.7134705f,  0.7553406f,  0.8087158f,  0.846405f,   0.8840942f,  0.9217834f,
+    0.015625f,   0.06607056f, 0.1003113f,  0.1380005f,  0.1756897f,  0.2153931f,  0.2670288f,
+    0.3360291f,  0.4050293f,  0.4740295f,  0.5256653f,  0.5842285f,  0.6427917f,  0.701355f,
+    0.7599182f,  0.8184814f,  0.8770447f,  0.015625f,   0.07763672f, 0.1362f,     0.1947632f,
+    0.2533264f,  0.3118896f,  0.3461304f,  0.3803711f,  0.4146118f,  0.4488525f,  0.5108643f,
+    0.572876f,   0.6383667f,  0.7038574f,  0.7693481f,  0.8348389f,  0.9003296f,  0.015625f,
+    0.08111572f, 0.1431274f,  0.2051392f,  0.2671509f,  0.3291626f,  0.3877258f,  0.4462891f,
+    0.5013428f,  0.5529785f,  0.6046143f,  0.65625f,    0.7078857f,  0.7595215f,  0.8111572f,
+    0.883606f,   0.9317322f,  0.015625f,   0.06726074f, 0.1188965f,  0.1705322f,  0.2016602f,
+    0.2327881f,  0.263916f,   0.2950439f,  0.3466797f,  0.3983154f,  0.4499512f,  0.5015869f,
+    0.5532227f,  0.6048584f,  0.6564941f,  0.7098694f,  0.7615051f,  0.8131409f,  0.8647766f,
+    0.9164124f,  0.015625f,   0.06375122f, 0.115387f};
+
+static const std::vector TextCharVs{
+    0.0f,       0.0f,       0.0f,       0.0f,       0.0f,       0.0f,       0.0f,       0.0f,
+    0.0f,       0.0f,       0.0f,       0.0f,       0.0f,       0.0f,       0.0f,       0.0f,
+    0.0f,       0.0f,       0.0f,       0.0f,       0.0f,       0.0f,       0.0f,       0.0f,
+    0.0f,       0.0f,       0.0f,       0.0f,       0.0f,       0.0f,       0.0f,       0.0f,
+    0.015625f,  0.015625f,  0.015625f,  0.015625f,  0.015625f,  0.015625f,  0.015625f,  0.015625f,
+    0.015625f,  0.015625f,  0.015625f,  0.015625f,  0.015625f,  0.015625f,  0.015625f,  0.015625f,
+    0.015625f,  0.015625f,  0.015625f,  0.015625f,  0.015625f,  0.1025391f, 0.1025391f, 0.1025391f,
+    0.1025391f, 0.1025391f, 0.1025391f, 0.1025391f, 0.1025391f, 0.1025391f, 0.1025391f, 0.1025391f,
+    0.1025391f, 0.1025391f, 0.1025391f, 0.1025391f, 0.1025391f, 0.1025391f, 0.1025391f, 0.1894531f,
+    0.1894531f, 0.1894531f, 0.1894531f, 0.1894531f, 0.1894531f, 0.1894531f, 0.1894531f, 0.1894531f,
+    0.1894531f, 0.1894531f, 0.1894531f, 0.1894531f, 0.1894531f, 0.1894531f, 0.1894531f, 0.2763672f,
+    0.2763672f, 0.2763672f, 0.2763672f, 0.2763672f, 0.2763672f, 0.2763672f, 0.2763672f, 0.2763672f,
+    0.2763672f, 0.2763672f, 0.2763672f, 0.2763672f, 0.2763672f, 0.2763672f, 0.2763672f, 0.2763672f,
+    0.2763672f, 0.2763672f, 0.2763672f, 0.3632813f, 0.3632813f, 0.3632813f, 0.3632813f, 0.3632813f,
+    0.3632813f, 0.3632813f, 0.3632813f, 0.3632813f, 0.3632813f, 0.3632813f, 0.3632813f, 0.3632813f,
+    0.3632813f, 0.3632813f, 0.3632813f, 0.3632813f, 0.3632813f, 0.3632813f, 0.3632813f, 0.0f,
+    0.0f,       0.0f,       0.0f,       0.0f,       0.0f,       0.0f,       0.0f,       0.0f,
+    0.0f,       0.0f,       0.0f,       0.0f,       0.0f,       0.0f,       0.0f,       0.0f,
+    0.0f,       0.0f,       0.0f,       0.0f,       0.0f,       0.0f,       0.0f,       0.0f,
+    0.0f,       0.0f,       0.0f,       0.0f,       0.0f,       0.0f,       0.0f,       0.0f,
+    0.3632813f, 0.4501953f, 0.4501953f, 0.4501953f, 0.4501953f, 0.4501953f, 0.4501953f, 0.4501953f,
+    0.4501953f, 0.4501953f, 0.4501953f, 0.4501953f, 0.4501953f, 0.4501953f, 0.4501953f, 0.4501953f,
+    0.4501953f, 0.4501953f, 0.4501953f, 0.4501953f, 0.4501953f, 0.4501953f, 0.5371094f, 0.5371094f,
+    0.5371094f, 0.5371094f, 0.5371094f, 0.5371094f, 0.5371094f, 0.5371094f, 0.5371094f, 0.5371094f,
+    0.5371094f, 0.5371094f, 0.5371094f, 0.5371094f, 0.5371094f, 0.5371094f, 0.5371094f, 0.6240234f,
+    0.6240234f, 0.6240234f, 0.6240234f, 0.6240234f, 0.6240234f, 0.6240234f, 0.6240234f, 0.6240234f,
+    0.6240234f, 0.6240234f, 0.6240234f, 0.6240234f, 0.6240234f, 0.6240234f, 0.6240234f, 0.6240234f,
+    0.7109375f, 0.7109375f, 0.7109375f, 0.7109375f, 0.7109375f, 0.7109375f, 0.7109375f, 0.7109375f,
+    0.7109375f, 0.7109375f, 0.7109375f, 0.7109375f, 0.7109375f, 0.7109375f, 0.7109375f, 0.7109375f,
+    0.7109375f, 0.7978516f, 0.7978516f, 0.7978516f, 0.7978516f, 0.7978516f, 0.7978516f, 0.7978516f,
+    0.7978516f, 0.7978516f, 0.7978516f, 0.7978516f, 0.7978516f, 0.7978516f, 0.7978516f, 0.7978516f,
+    0.7978516f, 0.7978516f, 0.7978516f, 0.7978516f, 0.7978516f, 0.8847656f, 0.8847656f, 0.8847656f};
+
+void RendererOpenGL::ReloadExtraShader() {
+    extra_shader.Create(extra_vertex_shader, extra_fragment_shader);
+    extra_state.draw.shader_program = extra_shader.handle;
+    extra_state.Apply();
+
+    extra_uniform_modelview_matrix = glGetUniformLocation(extra_shader.handle, "modelview_matrix");
+    extra_uniform_color_texture = glGetUniformLocation(extra_shader.handle, "color_texture");
+    extra_attrib_position = glGetAttribLocation(extra_shader.handle, "vert_position");
+    extra_attrib_tex_coord = glGetAttribLocation(extra_shader.handle, "vert_tex_coord");
+
+    LOG_INFO(Render_OpenGL,
+             "[TEXT] Reloaded text shader handle={} extra_uniform_modelview_matrix={} "
+             "extra_uniform_color_texture={} extra_attrib_position={} extra_attrib_tex_coord={}",
+             extra_shader.handle, extra_uniform_modelview_matrix, extra_uniform_color_texture,
+             extra_attrib_position, extra_attrib_tex_coord);
+}
+
+void RendererOpenGL::InitOpenGLExtraObjects() {
+    ReloadExtraShader();
+
+    extra_vertex_buffer.Create();
+    extra_vertex_array.Create();
+    extra_state.draw.vertex_array = extra_vertex_array.handle;
+    extra_state.draw.vertex_buffer = extra_vertex_buffer.handle;
+    extra_state.draw.uniform_buffer = 0;
+    extra_state.Apply();
+
+    glBufferData(GL_ARRAY_BUFFER, sizeof(ScreenRectVertex) * 4 * 1000, nullptr, GL_STREAM_DRAW);
+    glVertexAttribPointer(extra_attrib_position, 2, GL_FLOAT, GL_FALSE, sizeof(ScreenRectVertex), (GLvoid*)offsetof(ScreenRectVertex, position));
+    glVertexAttribPointer(extra_attrib_tex_coord, 2, GL_FLOAT, GL_FALSE, sizeof(ScreenRectVertex), (GLvoid*)offsetof(ScreenRectVertex, tex_coord));
+    glEnableVertexAttribArray(extra_attrib_position);
+    glEnableVertexAttribArray(extra_attrib_tex_coord);
+
+    GLint current_buffer;
+    glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &current_buffer);
+    extra_index_buffer.Create();
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, extra_index_buffer.handle);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLushort) * 6 * 1000, nullptr, GL_STREAM_DRAW);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, current_buffer > 0 ? current_buffer : 0);
+
+    {
+        const auto& image_interface = Core::System::GetInstance().GetImageInterface();
+        std::vector<u8> texture_data;
+        u32 texture_width, texture_height;
+        if (image_interface->DecodePNG(texture_data, texture_width, texture_height, "textures/sphere.png")) {
+            LOG_INFO(Render_OpenGL, "[TEXT] Loaded cursor image width={} height={}", texture_width, texture_height);
+        } else {
+            LOG_ERROR(Render_OpenGL, "[TEXT] Failed to load cursor texture");
+        }
+
+        extra_cursor_texture.Create();
+        extra_state.texture_units[0].texture_2d = extra_cursor_texture.handle;
+        extra_state.Apply();
+
+        glActiveTexture(GL_TEXTURE0);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, (GLsizei)texture_width, (GLsizei)texture_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, texture_data.data());
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+        LOG_INFO(Render_OpenGL, "[TEXT] Uploaded cursor texture handle={}", extra_cursor_texture.handle);
+    }
+
+    {
+      const auto& image_interface = Core::System::GetInstance().GetImageInterface();
+      std::vector<u8> texture_data;
+      u32 texture_width, texture_height;
+      if (image_interface->DecodePNG(texture_data, texture_width, texture_height, "textures/font.png")) {
+        LOG_INFO(Render_OpenGL, "[TEXT] Loaded font image width={} height={}", texture_width, texture_height);
+      }
+      else {
+        LOG_ERROR(Render_OpenGL, "[TEXT] Failed to load font texture");
+      }
+
+      extra_font_texture.Create();
+      extra_state.texture_units[1].texture_2d = extra_font_texture.handle;
+      extra_state.Apply();
+
+      glActiveTexture(GL_TEXTURE1);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAX_LEVEL, 0);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, (GLsizei)texture_width, (GLsizei)texture_height, 0, GL_RGBA, GL_UNSIGNED_BYTE, texture_data.data());
+      glGenerateMipmap(GL_TEXTURE_2D);
+
+      LOG_INFO(Render_OpenGL, "[TEXT] Uploaded cursor texture handle={}", extra_font_texture.handle);
+    }
+}
+
+void RendererOpenGL::DrawScreenCursor(const Layout::FramebufferLayout& layout, bool flipped) {
+    extra_state.renderbuffer = state.renderbuffer;
+    extra_state.draw.read_framebuffer = state.draw.read_framebuffer;
+    extra_state.draw.draw_framebuffer = state.draw.draw_framebuffer;
+
+    extra_state.blend.enabled = true;
+    extra_state.blend.src_rgb_func = GL_SRC_ALPHA;
+    // extra_state.blend.dst_rgb_func = GL_ONE_MINUS_SRC_ALPHA;
+    extra_state.blend.dst_rgb_func = GL_ONE;
+
+    extra_state.Apply();
+
+    if (Settings::values.mouse_hidden)
+      return;
+
+    std::array<GLfloat, 3 * 2> ortho_matrix = MakeOrthographicMatrix((float)layout.width, (float)layout.height, flipped);
+    glUniformMatrix3x2fv(extra_uniform_modelview_matrix, 1, GL_FALSE, ortho_matrix.data());
+
+    glUniform1i(extra_uniform_color_texture, 0);
+
+    std::vector<ScreenRectVertex> vertices{};
+    float x = (float)Settings::values.mouse_pos_x, y = (float)Settings::values.mouse_pos_y;
+    const float size = 16.0f;
+    auto push_quad = [&] {
+      vertices.emplace_back(x - size, y - size, 0.0f, 0.0f);
+      vertices.emplace_back(x - size, y + size, 0.0f, 1.0f);
+      vertices.emplace_back(x + size, y - size, 1.0f, 0.0f);
+      vertices.emplace_back(x + size, y + size, 1.0f, 1.0f);
+    };
+    push_quad();
+    if (x <= (float)layout.width / 2.0f) {
+        x += (float)layout.width / 2.0f;
+    } else {
+        x -= (float)layout.width / 2.0f;
+    }
+    push_quad();
+
+    glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(vertices.size() * sizeof(ScreenRectVertex)), vertices.data());
+
+    std::vector<GLushort> indices{};
+    for (size_t quad_index = 0; quad_index < vertices.size() / 4; ++quad_index) {
+      size_t vertex_index = quad_index * 4;
+      indices.push_back((GLushort)(vertex_index + 0));
+      indices.push_back((GLushort)(vertex_index + 1));
+      indices.push_back((GLushort)(vertex_index + 2));
+      indices.push_back((GLushort)(vertex_index + 1));
+      indices.push_back((GLushort)(vertex_index + 3));
+      indices.push_back((GLushort)(vertex_index + 2));
+    }
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, extra_index_buffer.handle);
+    GLint current_buffer;
+    glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &current_buffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, extra_index_buffer.handle);
+    glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, (GLsizeiptr)(indices.size() * sizeof(GLushort)), indices.data());
+    glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_SHORT, nullptr);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, current_buffer > 0 ? current_buffer : 0);
+
+    state.Apply();
+}
+
+void RendererOpenGL::DrawScreenText(const Layout::FramebufferLayout& layout, bool flipped, std::string_view text, float size, float x, float y) {
+    extra_state.renderbuffer = state.renderbuffer;
+    extra_state.draw.read_framebuffer = state.draw.read_framebuffer;
+    extra_state.draw.draw_framebuffer = state.draw.draw_framebuffer;
+
+    extra_state.blend.enabled = true;
+    extra_state.blend.src_rgb_func = GL_SRC_ALPHA;
+    extra_state.blend.dst_rgb_func = GL_ONE_MINUS_SRC_ALPHA;
+
+    extra_state.Apply();
+
+    std::array<GLfloat, 3 * 2> ortho_matrix = MakeOrthographicMatrix((float)layout.width, (float)layout.height, flipped);
+    glUniformMatrix3x2fv(extra_uniform_modelview_matrix, 1, GL_FALSE, ortho_matrix.data());
+
+    glUniform1i(extra_uniform_color_texture, 1);
+
+    float width = 0.0f;
+    std::vector<ScreenRectVertex> vertices{};
+    for (size_t i = 0; i < text.length(); ++i) {
+        char c = text[i];
+        if ((size_t)c >= TextCharWidths.size()) {
+            c = '?';
+        }
+        float char_width = TextCharWidths[c];
+        float char_u = TextCharUs[c];
+        float char_v = TextCharVs[c];
+        vertices.emplace_back(width, 0.0f, char_u, char_v);
+        vertices.emplace_back(width, TextCharHeight, char_u, char_v + TextCharHeight);
+        vertices.emplace_back(width + char_width, 0.0f, char_u + char_width, char_v);
+        vertices.emplace_back(width + char_width, TextCharHeight, char_u + char_width, char_v + TextCharHeight);
+        width += char_width;
+    }
+    for (ScreenRectVertex& vertex : vertices) {
+        vertex.position[0] *= size;
+        vertex.position[0] += x;
+        vertex.position[1] *= size;
+        vertex.position[1] += y;
+    }
+
+    glBufferSubData(GL_ARRAY_BUFFER, 0, (GLsizeiptr)(vertices.size() * sizeof(ScreenRectVertex)), vertices.data());
+
+    std::vector<GLushort> indices{};
+    for (size_t quad_index = 0; quad_index < vertices.size() / 4; ++quad_index) {
+      size_t vertex_index = quad_index * 4;
+      indices.push_back((GLushort)(vertex_index + 0));
+      indices.push_back((GLushort)(vertex_index + 1));
+      indices.push_back((GLushort)(vertex_index + 2));
+      indices.push_back((GLushort)(vertex_index + 1));
+      indices.push_back((GLushort)(vertex_index + 3));
+      indices.push_back((GLushort)(vertex_index + 2));
+    }
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, extra_index_buffer.handle);
+    GLint current_buffer;
+    glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &current_buffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, extra_index_buffer.handle);
+    glBufferSubData(GL_ELEMENT_ARRAY_BUFFER, 0, (GLsizeiptr)(indices.size() * sizeof(GLushort)), indices.data());
+    glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_SHORT, nullptr);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, current_buffer > 0 ? current_buffer : 0);
 }
 
 void RendererOpenGL::TryPresent(int timeout_ms) {

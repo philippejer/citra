@@ -260,6 +260,9 @@ struct Values {
     bool button1_handled;
     bool button2_pressed;
     bool button2_handled;
+    bool mouse_hidden;
+    int mouse_pos_x;
+    int mouse_pos_y;
 } extern values;
 
 // a special value for Values::region_value indicating that citra will automatically select a region

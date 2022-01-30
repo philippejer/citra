@@ -111,6 +111,11 @@ private:
     // Fills active OpenGL texture with the given RGB color.
     void LoadColorToActiveGLTexture(u8 color_r, u8 color_g, u8 color_b, const TextureInfo& texture);
 
+    void InitOpenGLExtraObjects();
+    void ReloadExtraShader();
+    void DrawScreenCursor(const Layout::FramebufferLayout& layout, bool flipped);
+    void DrawScreenText(const Layout::FramebufferLayout& layout, bool flipped, std::string_view text, float size, float x, float y);
+
     OpenGLState state;
 
     // OpenGL object IDs
@@ -141,6 +146,18 @@ private:
 
     GLuint uniform_shader_param_1;
     GLuint uniform_shader_param_2;
+
+    OpenGLState extra_state;
+    OGLProgram extra_shader;
+    OGLTexture extra_cursor_texture;
+    OGLTexture extra_font_texture;
+    OGLVertexArray extra_vertex_array;
+    OGLBuffer extra_vertex_buffer;
+    OGLBuffer extra_index_buffer;
+    GLuint extra_attrib_position;
+    GLuint extra_attrib_tex_coord;
+    GLuint extra_uniform_modelview_matrix;
+    GLuint extra_uniform_color_texture;
 };
 
 } // namespace OpenGL

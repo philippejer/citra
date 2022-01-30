@@ -2167,10 +2167,16 @@ void GMainWindow::HideMouseCursor() {
         return;
     }
     render_window->setCursor(QCursor(Qt::BlankCursor));
+    Settings::values.mouse_hidden = true;
 }
 
 void GMainWindow::ShowMouseCursor() {
-    render_window->unsetCursor();
+    if (Settings::values.render_3d != Settings::StereoRenderOption::SideBySide) {
+        render_window->unsetCursor();
+    } else {
+      setCursor(QCursor(Qt::BlankCursor));
+    }
+    Settings::values.mouse_hidden = false;
     if (emu_thread != nullptr && UISettings::values.hide_mouse) {
         mouse_hide_timer.start();
     }

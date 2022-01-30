@@ -302,6 +302,8 @@ void GRenderWindow::mouseMoveEvent(QMouseEvent* event) {
         return; // touch input is handled in TouchUpdateEvent
 
     auto pos = event->pos();
+    Settings::values.mouse_pos_x = pos.x();
+    Settings::values.mouse_pos_y = pos.y();
     const auto [x, y] = ScaleTouch(pos);
     this->TouchMoved(x, y);
     InputCommon::GetMotionEmu()->Tilt(pos.x(), pos.y());

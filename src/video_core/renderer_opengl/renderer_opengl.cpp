@@ -1062,7 +1062,8 @@ void RendererOpenGL::DrawScreens(const Layout::FramebufferLayout& layout, bool f
                           (float)bottom_screen.top, (float)bottom_screen.GetWidth(),
                           (float)bottom_screen.GetHeight());
         }
-    } else if (Settings::values.render_3d == Settings::StereoRenderOption::SideBySide) {
+    }
+    else if (Settings::values.render_3d == Settings::StereoRenderOption::SideBySide) {
         auto draw = layout.is_rotated ? &RendererOpenGL::DrawSingleScreenRotated
                                       : &RendererOpenGL::DrawSingleScreen;
         if (layout.top_screen_enabled) {
@@ -1094,7 +1095,45 @@ void RendererOpenGL::DrawScreens(const Layout::FramebufferLayout& layout, bool f
                           (float)bottom_screen.top, (float)bottom_screen.GetWidth() / 2,
                           (float)bottom_screen.GetHeight());
         }
-    } else if (stereo_single_screen) {
+    }
+    else if (Settings::values.render_3d == Settings::StereoRenderOption::CardboardVR) {
+        auto draw = layout.is_rotated ? &RendererOpenGL::DrawSingleScreenRotated
+                                      : &RendererOpenGL::DrawSingleScreen;
+        if (layout.top_screen_enabled) {
+            state.blend.enabled = false;
+            (this->*draw)(layout, screen_infos[0], layout.top_screen.left,
+                                    layout.top_screen.top, layout.top_screen.GetWidth(),
+                                    layout.top_screen.GetHeight());
+            glUniform1i(uniform_layer, 1);
+            (this->*draw)(layout, screen_infos[1],
+                                    layout.cardboard.top_screen_right_eye +
+                                        ((float)layout.width / 2),
+                                    layout.top_screen.top, layout.top_screen.GetWidth(),
+                                    layout.top_screen.GetHeight());
+        }
+        if (layout.bottom_screen_enabled) {
+            (this->*draw)(layout, screen_infos[2], layout.bottom_screen.left,
+                                    layout.bottom_screen.top, layout.bottom_screen.GetWidth(),
+                                    layout.bottom_screen.GetHeight());
+        }
+        glUniform1i(uniform_layer, 1);
+        if (layout.top_screen_enabled) {
+            state.blend.enabled = false;
+            (this->*draw)(layout, screen_infos[1],
+                                    layout.cardboard.top_screen_right_eye +
+                                        ((float)layout.width / 2),
+                                    layout.top_screen.top, layout.top_screen.GetWidth(),
+                                    layout.top_screen.GetHeight());
+        }
+        if (layout.bottom_screen_enabled) {
+            (this->*draw)(layout, screen_infos[2],
+                                    layout.cardboard.bottom_screen_right_eye +
+                                        ((float)layout.width / 2),
+                                    layout.bottom_screen.top, layout.bottom_screen.GetWidth(),
+                                    layout.bottom_screen.GetHeight());
+        }
+    }
+    else if (stereo_single_screen) {
         auto draw = layout.is_rotated ? &RendererOpenGL::DrawSingleScreenStereoRotated
                                       : &RendererOpenGL::DrawSingleScreenStereo;
         if (layout.top_screen_enabled) {
